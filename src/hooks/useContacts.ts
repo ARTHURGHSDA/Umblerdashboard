@@ -10,6 +10,7 @@ export function useContacts() {
   const fetchContacts = async () => {
     try {
       setLoading(true)
+      setError(null)
       
       // Fetch contacts with their tags and last message
       const { data: contactsData, error: contactsError } = await supabase
@@ -38,6 +39,11 @@ export function useContacts() {
         .order('updated_at', { ascending: false })
 
       if (contactsError) throw contactsError
+      
+      if (!contactsData) {
+        setContacts([])
+        return
+      }
 
       // Transform the data to match our Contact interface
       const transformedContacts: Contact[] = contactsData?.map(contact => {

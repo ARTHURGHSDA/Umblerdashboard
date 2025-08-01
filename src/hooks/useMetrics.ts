@@ -17,6 +17,7 @@ export function useMetrics() {
   const fetchMetrics = async () => {
     try {
       setLoading(true)
+      setError(null)
 
       // Get total contacts
       const { count: totalContacts } = await supabase
