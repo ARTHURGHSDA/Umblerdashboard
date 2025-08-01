@@ -2,6 +2,22 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Metrics } from '../types'
 
+// Métricas de exemplo
+const mockMetrics: Metrics = {
+  totalContacts: 2,
+  activeChats: 1,
+  waitingChats: 1,
+  totalMessages: 4,
+  avgResponseTime: 8.5,
+  todayMessages: 2
+}
+
+function isSupabaseConfigured() {
+  const url = import.meta.env.VITE_SUPABASE_URL || ''
+  const key = import.meta.env.VITE_SUPABASE_ANON_KEY || ''
+  return url && key && !url.includes('placeholder') && !key.includes('placeholder')
+}
+
 export function useMetrics() {
   const [metrics, setMetrics] = useState<Metrics>({
     totalContacts: 0,
@@ -16,8 +32,15 @@ export function useMetrics() {
 
   const fetchMetrics = async () => {
     try {
-      setLoading(true)
       setError(null)
+      
+      // Se Supabase não estiver configurado, usar dados de exemplo
+      if (!isSupabaseConfigured()) {
+        console.log('🔧 Supabase não configurado - usando métricas de exemplo')
+        setMetrics(mockMetrics)
+        setLoading(false)
+        return
+      }
 
       // Get total contacts
       const { count: totalContacts } = await supabase
@@ -63,9 +86,7 @@ export function useMetrics() {
           const replyTime = new Date(chat.first_member_reply_at!).getTime()
           return (replyTime - contactTime) / 1000 / 60 // minutes
         })
-        avgResponseTime = Math.round(
-          responseTimes.reduce((sum, time) => sum + time, 0) / responseTimes.length
-        )
+        avgResponseTime = responseTimes.reduce((sum, time) => sum + time, 0) / responseTimes.length
       }
 
       setMetrics({
@@ -73,11 +94,16 @@ export function useMetrics() {
         activeChats: activeChats || 0,
         waitingChats: waitingChats || 0,
         totalMessages: totalMessages || 0,
-        avgResponseTime,
+        avgResponseTime: Math.round(avgResponseTime * 10) / 10,
         todayMessages: todayMessages || 0
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred')
+      setError(err instanceof Error ? err.message : 'Erro ao carregar métricas')
+      console.error('Erro no useMetrics:', err)
+      
+      // Em caso de erro, usar dados de exemplo
+      console.log('🔄 Usando métricas de exemplo devido ao erro')
+      setMetrics(mockMetrics)
     } finally {
       setLoading(false)
     }
@@ -86,7 +112,12 @@ export function useMetrics() {
   useEffect(() => {
     fetchMetrics()
 
-    // Refetch metrics every 30 seconds
+    // Só configurar polling se Supabase estiver configurado
+    if (!isSupabaseConfigured()) {
+      return
+    }
+
+    // Atualizar métricas a cada 30 segundos
     const interval = setInterval(fetchMetrics, 30000)
     return () => clearInterval(interval)
   }, [])

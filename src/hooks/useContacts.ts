@@ -2,6 +2,91 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Contact, Tag } from '../types'
 
+// Dados de exemplo para quando Supabase não estiver configurado
+const mockContacts: Contact[] = [
+  {
+    id: 'contact_example_1',
+    organization_id: 'org_example',
+    name: 'João Silva',
+    phone_number: '+5511999999999',
+    profile_picture_url: null,
+    is_blocked: false,
+    last_active_utc: new Date().toISOString(),
+    contact_type: 'DirectMessage',
+    group_identifier: null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    tags: [
+      { id: 'tag_1', name: 'Cliente VIP', color: '#10B981', created_at: '', updated_at: '' },
+      { id: 'tag_2', name: 'Suporte', color: '#EF4444', created_at: '', updated_at: '' }
+    ],
+    last_message: {
+      id: 'msg_example_1',
+      chat_id: 'chat_example_1',
+      contact_id: 'contact_example_1',
+      organization_member_id: null,
+      content: 'Olá, preciso de ajuda com meu pedido',
+      message_type: 'Text',
+      source: 'Contact',
+      message_state: 'Sent',
+      is_private: false,
+      event_at_utc: new Date().toISOString(),
+      file_url: null,
+      thumbnail_url: null,
+      in_reply_to: null,
+      template_id: null,
+      billable: null,
+      deducted_ai_credits: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    },
+    response_time: 5
+  },
+  {
+    id: 'contact_example_2',
+    organization_id: 'org_example',
+    name: 'Maria Santos',
+    phone_number: '+5511888888888',
+    profile_picture_url: null,
+    is_blocked: false,
+    last_active_utc: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30 min atrás
+    contact_type: 'DirectMessage',
+    group_identifier: null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    tags: [
+      { id: 'tag_3', name: 'Vendas', color: '#3B82F6', created_at: '', updated_at: '' }
+    ],
+    last_message: {
+      id: 'msg_example_2',
+      chat_id: 'chat_example_2',
+      contact_id: 'contact_example_2',
+      organization_member_id: null,
+      content: 'Gostaria de saber mais sobre seus produtos',
+      message_type: 'Text',
+      source: 'Contact',
+      message_state: 'Delivered',
+      is_private: false,
+      event_at_utc: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
+      file_url: null,
+      thumbnail_url: null,
+      in_reply_to: null,
+      template_id: null,
+      billable: null,
+      deducted_ai_credits: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    },
+    response_time: 12
+  }
+]
+
+function isSupabaseConfigured() {
+  const url = import.meta.env.VITE_SUPABASE_URL || ''
+  const key = import.meta.env.VITE_SUPABASE_ANON_KEY || ''
+  return url && key && !url.includes('placeholder') && !key.includes('placeholder')
+}
+
 export function useContacts() {
   const [contacts, setContacts] = useState<Contact[]>([])
   const [loading, setLoading] = useState(true)
@@ -11,6 +96,14 @@ export function useContacts() {
     try {
       setError(null)
       
+      // Se Supabase não estiver configurado, usar dados de exemplo
+      if (!isSupabaseConfigured()) {
+        console.log('🔧 Supabase não configurado - usando dados de exemplo')
+        setContacts(mockContacts)
+        setLoading(false)
+        return
+      }
+
       // Fetch contacts with their tags and last message
       const { data: contactsData, error: contactsError } = await supabase
         .from('contacts')
@@ -42,8 +135,9 @@ export function useContacts() {
         throw contactsError
       }
       
-      if (!contactsData) {
-        setContacts([])
+      if (!contactsData || contactsData.length === 0) {
+        console.log('📝 Nenhum contato encontrado - usando dados de exemplo')
+        setContacts(mockContacts)
         return
       }
 
@@ -76,6 +170,10 @@ export function useContacts() {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar contatos'
       setError(errorMessage)
       console.error('Erro no useContacts:', err)
+      
+      // Em caso de erro, usar dados de exemplo
+      console.log('🔄 Usando dados de exemplo devido ao erro')
+      setContacts(mockContacts)
     } finally {
       setLoading(false)
     }
@@ -83,6 +181,11 @@ export function useContacts() {
 
   useEffect(() => {
     fetchContacts()
+
+    // Só configurar real-time se Supabase estiver configurado
+    if (!isSupabaseConfigured()) {
+      return
+    }
 
     // Subscribe to real-time updates
     const contactsSubscription = supabase

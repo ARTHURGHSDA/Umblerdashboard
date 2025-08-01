@@ -4,9 +4,10 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || ''
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || ''
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Missing Supabase environment variables. Please check your .env file or Vercel environment variables.')
-  console.error('VITE_SUPABASE_URL:', supabaseUrl ? 'Set' : 'Missing')
-  console.error('VITE_SUPABASE_ANON_KEY:', supabaseAnonKey ? 'Set' : 'Missing')
+  console.warn('⚠️ Supabase não configurado - usando dados de exemplo')
+  console.warn('📝 Configure o arquivo .env com suas credenciais do Supabase')
+  console.warn('VITE_SUPABASE_URL:', supabaseUrl ? 'Set' : 'Missing')
+  console.warn('VITE_SUPABASE_ANON_KEY:', supabaseAnonKey ? 'Set' : 'Missing')
 }
 
 // Create a fallback client if environment variables are missing

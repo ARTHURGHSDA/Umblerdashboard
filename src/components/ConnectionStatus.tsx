@@ -13,6 +13,17 @@ export function ConnectionStatus() {
       setIsLoading(true)
       setError(null)
       
+      // Verificar se Supabase está configurado
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || ''
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || ''
+      
+      if (!supabaseUrl || !supabaseKey || supabaseUrl.includes('placeholder') || supabaseKey.includes('placeholder')) {
+        setError('Supabase não configurado - usando dados de exemplo')
+        setIsConnected(false)
+        setIsLoading(false)
+        return
+      }
+      
       // Test Supabase connection
       const { data, error: connectionError } = await supabase
         .from('contacts')
