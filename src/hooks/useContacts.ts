@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Contact, Tag } from '../types'
 
@@ -7,9 +7,8 @@ export function useContacts() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchContacts = async () => {
+  const fetchContacts = useCallback(async () => {
     try {
-      setLoading(true)
       setError(null)
       
       // Fetch contacts with their tags and last message
@@ -17,7 +16,7 @@ export function useContacts() {
         .from('contacts')
         .select(`
           *,
-          contact_tags!inner(
+          contact_tags(
             tag:tags(*)
           ),
           chats(
@@ -38,7 +37,10 @@ export function useContacts() {
         `)
         .order('updated_at', { ascending: false })
 
-      if (contactsError) throw contactsError
+      if (contactsError) {
+        console.error('Erro ao buscar contatos:', contactsError)
+        throw contactsError
+      }
       
       if (!contactsData) {
         setContacts([])
@@ -47,9 +49,11 @@ export function useContacts() {
 
       // Transform the data to match our Contact interface
       const transformedContacts: Contact[] = contactsData?.map(contact => {
-        const tags = contact.contact_tags?.map((ct: any) => ct.tag) || []
+        const tags = contact.contact_tags?.map((ct: any) => ct.tag).filter(Boolean) || []
         const chat = contact.chats?.[0]
-        const lastMessage = chat?.messages?.[0]
+        const lastMessage = chat?.messages?.sort((a: any, b: any) => 
+          new Date(b.event_at_utc).getTime() - new Date(a.event_at_utc).getTime()
+        )?.[0]
         
         // Calculate response time if we have both timestamps
         let responseTime = 0
@@ -69,11 +73,13 @@ export function useContacts() {
 
       setContacts(transformedContacts)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred')
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar contatos'
+      setError(errorMessage)
+      console.error('Erro no useContacts:', err)
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
     fetchContacts()
@@ -83,18 +89,37 @@ export function useContacts() {
       .channel('contacts-changes')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'contacts' },
-        () => fetchContacts()
+        (payload) => {
+          console.log('Mudança em contacts:', payload)
+          fetchContacts()
+        }
       )
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'messages' }, 
-        () => fetchContacts()
+        (payload) => {
+          console.log('Mudança em messages:', payload)
+          fetchContacts()
+        }
+      )
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'chats' }, 
+        (payload) => {
+          console.log('Mudança em chats:', payload)
+          fetchContacts()
+        }
       )
       .subscribe()
 
+    // Polling como fallback (atualiza a cada 30 segundos)
+    const pollInterval = setInterval(() => {
+      fetchContacts()
+    }, 30000)
+
     return () => {
       supabase.removeChannel(contactsSubscription)
+      clearInterval(pollInterval)
     }
-  }, [])
+  }, [fetchContacts])
 
   return { contacts, loading, error, refetch: fetchContacts }
 }
